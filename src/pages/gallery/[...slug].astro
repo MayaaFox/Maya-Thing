@@ -1,0 +1,112 @@
+---
+import { type CollectionEntry, getCollection, render } from "astro:content";
+import Layout from "@/layouts/Layout.astro";
+
+export async function getStaticPaths() {
+  const items = await getCollection("gallery");
+  return items.map((item) => ({
+    params: { slug: item.id },
+    props: item,
+  }));
+}
+
+type Props = CollectionEntry<"gallery">;
+const item = Astro.props as Props;
+
+const { Content } = await render(item);
+const isNsfw = item.data.nsfw === true || item.data.category === "nsfw";
+---
+
+<Layout title={item.data.title}>
+  <main class="mx-auto max-w-5xl px-4 py-10">
+    <a href="/gallery" class="underline opacity-80">← Back to gallery</a>
+
+    <h1 class="mt-4 text-4xl font-bold">{item.data.title}</h1>
+
+    <div class="mt-2 text-sm opacity-70 flex flex-wrap gap-2 items-center">
+      {item.data.artistName && (
+        <span>
+          by{" "}
+          {item.data.artistUrl ? (
+            <a class="underline" href={item.data.artistUrl} target="_blank" rel="noreferrer">
+              {item.data.artistName}
+            </a>
+          ) : (
+            <span>{item.data.artistName}</span>
+          )}
+        </span>
+      )}
+
+      {item.data.date && (
+        <span>
+          {item.data.artistName ? "· " : ""}
+          {item.data.date.toDateString()}
+        </span>
+      )}
+
+      {item.data.sourceUrl && (
+        <span>
+          ·{" "}
+          <a class="underline" href={item.data.sourceUrl} target="_blank" rel="noreferrer">
+            source
+          </a>
+        </span>
+      )}
+
+      <span class="rounded-full border border-white/20 px-3 py-1 text-xs">
+        {item.data.category}
+      </span>
+
+      {isNsfw && (
+        <span class="rounded-full border border-white/20 px-3 py-1 text-xs">
+          NSFW
+        </span>
+      )}
+    </div>
+
+    <div class="mt-8 flex justify-center">
+      <div class="relative w-full flex justify-center">
+        <img
+          id="mainImg"
+          src={item.data.image}
+          alt={item.data.title}
+          class={`max-h-[80vh] max-w-full rounded-2xl object-contain ${isNsfw ? "blur-md" : ""}`}
+        />
+
+        {isNsfw && (
+          <button
+            id="revealBtn"
+            class="absolute inset-0 m-auto h-fit w-fit rounded-xl border border-white/20 bg-black/70 px-4 py-2 text-sm hover:bg-black/80 transition"
+            type="button"
+          >
+            Reveal NSFW
+          </button>
+        )}
+      </div>
+    </div>
+
+    {item.data.tags?.length && (
+      <div class="mt-4 text-sm opacity-70">
+        Tags: {item.data.tags.join(" · ")}
+      </div>
+    )}
+
+    <article class="prose prose-invert mt-10">
+      <Content />
+    </article>
+  </main>
+</Layout>
+
+{isNsfw && (
+  <script is:inline>
+    const btn = document.getElementById("revealBtn");
+    const img = document.getElementById("mainImg");
+    if (btn && img) {
+      btn.addEventListener("click", () => {
+        img.classList.toggle("blur-md");
+        const blurred = img.classList.contains("blur-md");
+        btn.textContent = blurred ? "Reveal NSFW" : "Hide NSFW";
+      });
+    }
+  </script>
+)}

@@ -1,0 +1,152 @@
+---
+import { getCollection } from "astro:content";
+import Layout from "@/layouts/Layout.astro";
+import Section from "@/components/Section.astro";
+
+const items = await getCollection("gallery");
+
+// newest first if date exists
+items.sort((a, b) => {
+  const ad = a.data.date ? a.data.date.valueOf() : 0;
+  const bd = b.data.date ? b.data.date.valueOf() : 0;
+  return bd - ad;
+});
+---
+
+<Layout title="Gallery">
+  <Section title="Gallery">
+    <div class="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+      <div class="flex flex-col gap-2 w-full md:max-w-xl">
+        <label class="text-sm opacity-80" for="q">Search</label>
+        <input
+          id="q"
+          type="text"
+          placeholder="Search title, tags, artist…"
+          class="w-full rounded-xl border border-white/20 bg-black/30 px-4 py-2"
+        />
+      </div>
+
+      <div class="flex flex-wrap gap-3">
+        <div class="flex flex-col gap-2">
+          <label class="text-sm opacity-80" for="cat">Category</label>
+          <select id="cat" class="rounded-xl border border-white/20 bg-black/30 px-3 py-2">
+            <option value="all">All</option>
+            <option value="graphic-design">Graphic Design</option>
+            <option value="fanart">Fanart</option>
+            <option value="favorites">Favorites</option>
+            <option value="nsfw">NSFW</option>
+          </select>
+        </div>
+
+        <label class="flex items-center gap-2 rounded-xl border border-white/20 bg-black/30 px-3 py-2">
+          <input id="fav" type="checkbox" />
+          <span class="text-sm">Favorites only</span>
+        </label>
+
+        <label class="flex items-center gap-2 rounded-xl border border-white/20 bg-black/30 px-3 py-2">
+          <input id="showNsfw" type="checkbox" />
+          <span class="text-sm">Show NSFW</span>
+        </label>
+      </div>
+    </div>
+
+    <p id="count" class="text-sm opacity-70 mb-4"></p>
+
+    <div id="grid" class="grid grid-cols-2 md:grid-cols-3 gap-4">
+      {items.map((item) => {
+        const tags = (item.data.tags ?? []).join(" ");
+        const artist = item.data.artistName ?? "";
+        const searchable = `${item.data.title} ${tags} ${artist}`.toLowerCase();
+        const isNsfw = item.data.nsfw === true || item.data.category === "nsfw";
+
+        return (
+          <a
+            href={`/gallery/${item.id}/`}
+            class="tile block rounded-xl border border-white/10 hover:border-white/30 transition overflow-hidden"
+            data-title={item.data.title}
+            data-category={item.data.category}
+            data-tags={tags}
+            data-artist={artist}
+            data-search={searchable}
+            data-fav={item.data.favorite ? "1" : "0"}
+            data-nsfw={isNsfw ? "1" : "0"}
+          >
+            <div class="relative">
+              <img
+                src={item.data.image}
+                alt={item.data.title}
+                loading="lazy"
+                class={`w-full aspect-square object-cover ${isNsfw ? "nsfw-img blur-md" : ""}`}
+              />
+              {isNsfw && (
+                <div class="absolute inset-0 flex items-center justify-center">
+                  <span class="rounded-full bg-black/70 px-3 py-1 text-xs border border-white/20">
+                    NSFW
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div class="p-3">
+              <div class="font-semibold leading-tight">{item.data.title}</div>
+              <div class="text-sm opacity-70">
+                {item.data.artistName ? `by ${item.data.artistName}` : item.data.category}
+              </div>
+              {item.data.tags?.length && (
+                <div class="text-xs opacity-60 mt-1">{item.data.tags.join(" · ")}</div>
+              )}
+            </div>
+          </a>
+        );
+      })}
+    </div>
+  </Section>
+</Layout>
+
+<script is:inline>
+  const q = document.getElementById("q");
+  const cat = document.getElementById("cat");
+  const fav = document.getElementById("fav");
+  const showNsfw = document.getElementById("showNsfw");
+  const tiles = Array.from(document.querySelectorAll(".tile"));
+  const count = document.getElementById("count");
+
+  function apply() {
+    const query = (q.value || "").trim().toLowerCase();
+    const category = cat.value;
+    const favOnly = fav.checked;
+    const allowNsfw = showNsfw.checked;
+
+    let visible = 0;
+
+    for (const t of tiles) {
+      const search = t.dataset.search || "";
+      const tCat = t.dataset.category || "";
+      const tFav = t.dataset.fav === "1";
+      const tNsfw = t.dataset.nsfw === "1";
+
+      const matchQuery = !query || search.includes(query);
+      const matchCat = category === "all" || tCat === category;
+      const matchFav = !favOnly || tFav;
+      const matchNsfw = allowNsfw || !tNsfw;
+
+      const show = matchQuery && matchCat && matchFav && matchNsfw;
+      t.style.display = show ? "" : "none";
+      if (show) visible++;
+    }
+
+    // Blur toggling
+    for (const img of document.querySelectorAll(".nsfw-img")) {
+      img.classList.toggle("blur-md", !showNsfw.checked);
+    }
+
+    count.textContent = `${visible} item${visible === 1 ? "" : "s"} shown`;
+  }
+
+  q.addEventListener("input", apply);
+  cat.addEventListener("change", apply);
+  fav.addEventListener("change", apply);
+  showNsfw.addEventListener("change", apply);
+
+  apply();
+</script>
